@@ -2,16 +2,13 @@
 
 - type: github
   icon: "fab fa-github"
-  url: "https://github.com/r3dy-malz"
 
 - type: twitter
   icon: "fa-brands fa-x-twitter"
-  url: "https://x.com/R3dy_malz"
 
 - type: email
   icon: "fas fa-envelope"
   noblank: true # open link in current tab
-  url: "r3dy_malz@proton.me"
 
 #- type: rss
 #  icon: "fas fa-rss"
