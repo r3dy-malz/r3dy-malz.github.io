@@ -2,7 +2,8 @@
 layout: post
 title: Z2A - Unpacking Custom Sample - Part 1
 date: 2025-12-08 18:44 +0100
-categories: [Zero2Automated, Unpacking]
+categories:
+  - Unpacking
 author: r3dy
 description: Today, we’re going to analyze the first custom malware sample in Zero2Automated course !
 image:
