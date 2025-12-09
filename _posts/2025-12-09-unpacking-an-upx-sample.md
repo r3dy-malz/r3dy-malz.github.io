@@ -9,6 +9,8 @@ author: r3dy
 image:
   path: /assets/img/preview/upx.png
   alt: UPX logo
+tags:
+  - Windows
 ---
 Hi everyone! To(**night**)day, I will show you how to **manually** unpack a sample on the PMAT course of **HuskyHacker** using *OllyDbg* (and *OllyDump* plugin), *ImportReconstructor*, *Detect It Easy* and *PE View*. This is something outside of the scope of the PMAT course but, let’s do it anyway !!!
 

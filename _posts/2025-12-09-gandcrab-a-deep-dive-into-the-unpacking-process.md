@@ -8,6 +8,7 @@ author: r3dy
 description: This article is a technical analysis of the unpacking routine of a ransomware sample. This sample was given in a school exercise - NOT PUBLIC.
 tags:
   - gandcrab
+  - Windows
 image:
   path: /assets/img/preview/gandcrab.png
   alt: GandCrab logo (IA generated)

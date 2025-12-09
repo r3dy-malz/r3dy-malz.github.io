@@ -9,6 +9,8 @@ description: Today, we’re going to analyze the first custom malware sample in 
 image:
   path: /assets/img/preview/z2a.jpg
   alt: Zero2Automated logo
+tags:
+  - Windows
 ---
 
 ## Triage
