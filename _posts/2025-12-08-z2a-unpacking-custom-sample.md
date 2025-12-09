@@ -17,29 +17,29 @@ image:
 | Score VT | `61/72` |
 
 ![{08B104C5-972E-448A-9B02-239C0AB69267}.png](/assets/img/08B104C5-972E-448A-9B02-239C0AB69267.png)
-
+_VirusTotal screenshot_
 ## Basic Binary Information
 
 > The first step after `Triage` of the binary, is to perform a basic static analysis. The goal ? Make assumptions about the information that are available directly in the structure of the sample.
 > 
 
-Using **Detect It Easy**, it appears that the `.rsrc` section has a constant high entropy. This indicates an encrypted zone inside the resources and surely a packed malware.
+Using **Detect It Easy**, it appears that the `.rsrc` section has a constant high entropy. This indicates an encrypted zone inside the resource and surely a packed malware.
 
 ![{44CA82E5-1CE1-4973-968E-A52EACA01D46}.png](/assets/img/44CA82E5-1CE1-4973-968E-A52EACA01D46.png)
-
+_DetectItEasy screenshot - .rsrc section entropy diagram_
 Another indicator supporting our hypothesis is the presence of a single imported library named `KERNEL32.dll`. 
 
-> This is a technique aimed to conceal the capabilities of the malware and exposes them while running.
+> This is a technique aimed at concealing the capabilities of the malware and exposing them while running.
 > 
 
 It is very likely that the sample dynamically resolves further APIs by calling `LoadLibraryA` and `GetProcAddress` (two API present inside Kernel32.dll).
 
 ![{97C6792E-EB60-41AB-A3F1-5315FE5DEA94}.png](/assets/img/97C6792E-EB60-41AB-A3F1-5315FE5DEA94.png)
-
+_PE-Bear - Only Kernel32.dll Library_
 Using Resource Hacker, we found an **RCData** Resource represented with integer `101`. 
 
 ![{C8370412-F0B7-4807-B57C-A528A41E0F24}.png](/assets/img/C8370412-F0B7-4807-B57C-A528A41E0F24.png)
-
+_Resource Hacker - strange resource_
 Finally, several strings appeared to be obfuscated or encrypted, preventing an analyst to find clues about the purpose of the malware.
 
 ## Dive into assembly code
@@ -49,11 +49,11 @@ Finally, several strings appeared to be obfuscated or encrypted, preventing an a
 The first lines of code contains multiple offset containing obfuscated strings. Theses strings are then used with `LoadLibraryA` and `GetprocAddress` to dynamically resolves API function. Looking at the screen below, each `push <offset>` is followed by a call to the previously mentioned API.
 
 ![{228A6C08-E623-4B32-A4DC-D3EA693BD21A}.png](/assets/img/228A6C08-E623-4B32-A4DC-D3EA693BD21A.png)
-
+_Resolving of the WinAPIs_
 Following the offsets into `.data` section shows us the list of obfuscated strings :
 
 ![{9B0E460A-AB94-43A8-90DF-D9E2865871E6}.png](/assets/img/9B0E460A-AB94-43A8-90DF-D9E2865871E6.png)
-
+_.data - encoded strings_
 The strings are decoded using the `sub_401300` function. We found a base64 format string `"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890./="` and a rotation number of `13` that clearly indicates a **ROT13**. ROT13 and Base64 are sometimes used together for obfuscation purposes. 
 
 To easily decode all the strings and continue our analysis, we can the python script below. The script fetches the `.data` section and uses a regex rule that
@@ -154,7 +154,7 @@ size_encrypted_data = 10 * *(_DWORD *)(rsrc_first_bytes + 8);
 When inspecting the binary with **Resource Hacker**, we discovered an **RCData** resource named `101`, with a total size of `0x1541C` bytes.
 
 ![{126D1BB1-02E2-428F-9AB6-69EC3668A37E}.png](/assets/img/126D1BB1-02E2-428F-9AB6-69EC3668A37E.png)
-
+_Resource Hacker - RCData resource_
 Looking back at the code, we can see that it reads a **DWORD** (a 4-byte integer) located **8 bytes after** the beginning of this resource. The value recovered there is `0x2200`.
 
 Next, this value is multiplied by `0x10` (16 in decimal), giving us `0x15400`. This seems to represent the expected size of the decrypted data.
@@ -201,7 +201,7 @@ This step is likely part of the decryption setup of **RC4 Algorithm**. Indeed, w
 [See another post for RC4 encryption details](https://r3dy.fr/blog/unpacking-rc4-encrypted-malware---revil-ransomware/)
 
 ![{BA5A4D40-45F8-48BF-B19C-07635C389AC6}.png](/assets/img/BA5A4D40-45F8-48BF-B19C-07635C389AC6.png)
-
+_In IDA Free - RC4 Behavior_
 The decryption key is stored inside `.rsrc` starting **12 bytes** from the resource head.
 
 ```c
@@ -212,11 +212,11 @@ The disassembly indexes this area with `index % 0xFu`, which implies a **15-byte
 Inside, Resource Hacker, we observed the decryption key which, I admit, was very obvious : `"kkd5YdPM24VBXmi"`
 
 ![{FF06E93C-90D5-452E-A943-8FCC0D039525}.png](/assets/img/FF06E93C-90D5-452E-A943-8FCC0D039525.png)
-
+_Decryption Key_
 Before writing a script to automate the decryption of the section, we can confirm this hypothesis with Cyber Chef by extracting after `rsrc_first_bytes + 0x1C`.
 
 ![{FF17CB5A-293F-4BEA-93E7-35751A56785D}.png](/assets/img/FF17CB5A-293F-4BEA-93E7-35751A56785D.png)
-
+_CyberChef - Decrypted MZ File_
 Wow ! A PE file is hidden !
 
 This freshly decrypted PE file is then sent to an injection function.
@@ -295,7 +295,7 @@ allocated_memory = ((int (__stdcall *))VirtualAllocEx)(
 Both values can be observed inside **PE-BEAR**.
 
 ![image.png](/assets/img/image.png)
-
+_PE-Bear - ImageBase / SizeOfImage_
 After creating the remote image, the injector first writes the PE **headers** and then iterates the section table to write each section into the allocated memory.
 
 In the snippet below it writes only the `SizeOfHeaders` bytes (the value read from the Optional Header):
