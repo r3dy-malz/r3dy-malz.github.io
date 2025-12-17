@@ -11,13 +11,14 @@ image:
   alt: Zero2Automated logo
 tags:
   - Windows
+  - Z2A
 ---
 
 ## Triage
 
-| SHA256 | `a0ac02a1e6c908b90173e86c3e321f2bab082ed45236503a21eb7d984de10611` |
-| --- | --- |
-| Score VT | `61/72` |
+| SHA256   | `a0ac02a1e6c908b90173e86c3e321f2bab082ed45236503a21eb7d984de10611` |
+| -------- | ------------------------------------------------------------------ |
+| Score VT | `61/72`                                                            |
 
 ![{08B104C5-972E-448A-9B02-239C0AB69267}.png](/assets/img/08B104C5-972E-448A-9B02-239C0AB69267.png)
 _VirusTotal screenshot_
