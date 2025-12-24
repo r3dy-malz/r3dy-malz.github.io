@@ -54,7 +54,7 @@ For proper analysis, this dumped binary needs to be converted to an unmapped bin
 First, open the dumped file in PE-Bear and click on `Section Hdrs` tab.
 
 ![PE-Bear - Section view #1](/assets/img/gozigozigozi/5.png)
-_PE-Bear - Section view 1 _
+_PE-Bear - Section view 1_
 
 Second, edit the `Raw Addr.` field to match the `Virtual Addr.`
 

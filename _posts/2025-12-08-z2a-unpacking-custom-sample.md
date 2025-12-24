@@ -25,9 +25,8 @@ _VirusTotal screenshot_
 ## Basic Binary Information
 
 > The first step after `Triage` of the binary, is to perform a basic static analysis. The goal ? Make assumptions about the information that are available directly in the structure of the sample.
-> 
 
-Using **Detect It Easy**, it appears that the `.rsrc` section has a constant high entropy. This indicates an encrypted zone inside the resource and surely a packed malware.
+Using **Detect It Easy**, it appears that the `.rsrc` section has a constant high entropy. This kind of entropy can indicates the presence of malware.
 
 ![{44CA82E5-1CE1-4973-968E-A52EACA01D46}.png](/assets/img/44CA82E5-1CE1-4973-968E-A52EACA01D46.png)
 _DetectItEasy screenshot - .rsrc section entropy diagram_
@@ -161,7 +160,7 @@ When inspecting the binary with **Resource Hacker**, we discovered an **RCData**
 _Resource Hacker - RCData resource_
 Looking back at the code, we can see that it reads a **DWORD** (a 4-byte integer) located **8 bytes after** the beginning of this resource. The value recovered there is `0x2200`.
 
-Next, this value is multiplied by `0x10` (16 in decimal), giving us `0x15400`. This seems to represent the expected size of the decrypted data.
+Next, this value is multiplied by `0xA` (10 in decimal), giving us `0x15400`. This seems to represent the expected size of the decrypted data.
 
 Now, if we compare this with the actual resource size:
 
@@ -186,7 +185,7 @@ handle_alloc = ((int (__stdcall *)(_DWORD, signed int, int, int))ptr_virtualAllo
 );*/
 ```
 
-Once the memory is allocated, the function `sub_402DB0` is called to copy the encrypted data ****from the resource into this newly allocated region:
+Once the memory is allocated, the function `sub_402DB0` is called to copy the encrypted data from the resource into this newly allocated region:
 
 ```c
 sub_402DB0(handle_alloc, rsrc_first_bytes + 0x1C, size_encrypted_data);
@@ -201,18 +200,24 @@ key = 0;
 sub_4025B0((__m128i *)unk_data, 0, 0x102u);
 ```
 
-This step is likely part of the decryption setup of **RC4 Algorithm**. Indeed, we can observed successive block looped `0x100` (256) times. 
-[See another post for RC4 encryption details](https://r3dy.fr/blog/unpacking-rc4-encrypted-malware---revil-ransomware/)
+---
+
+The next step is likely part of the decryption setup of **RC4 Algorithm**. Indeed, static analysis of the routine reveals a byte-wise stream cipher consistent with RC4. The code implements both the **key scheduling algorithm (KSA)** and the **pseudo-random generation algorithm (PRGA)** operating over a 256-byte state array, which is a defining characteristic of RC4.
+*[See another post for RC4 encryption details](https://r3dy.fr/posts/unrevil-unpacking-rc4-encrypted-malware/)*
+
 
 ![{BA5A4D40-45F8-48BF-B19C-07635C389AC6}.png](/assets/img/BA5A4D40-45F8-48BF-B19C-07635C389AC6.png)
 _In IDA Free - RC4 Behavior_
+
+The combination of a 256-byte permutation array, modulo-256 index arithmetic, key-dependent swaps, and XOR-based keystream application leaves little ambiguity: this routine is a custom implementation of the RC4 stream cipher.
+
 The decryption key is stored inside `.rsrc` starting **12 bytes** from the resource head.
 
 ```c
  key += v18 + *(_BYTE *)(index % 0xFu + rsrc_first_bytes + 12);
 ```
 
-The disassembly indexes this area with `index % 0xFu`, which implies a **15-byte** key.
+The disassembly indexes this area with `index % 0xFu`, which implies a **16-bytes** key.
 Inside, Resource Hacker, we observed the decryption key which, I admit, was very obvious : `"kkd5YdPM24VBXmi"`
 
 ![{FF06E93C-90D5-452E-A943-8FCC0D039525}.png](/assets/img/FF06E93C-90D5-452E-A943-8FCC0D039525.png)
@@ -272,19 +277,19 @@ handle_alloc->ContextFlags = 0x10007;
 
 Then, the context of the suspended thread is stored inside *handle_alloc*.
 
-The use of `ReadProcessMemory` on the suspended thread indicates that a value is put inside `v27`.
-
-Using `ReadProcessMemory`, the value at `Ebx + 8` in the suspended thread is written inside `v27`. The register `EBX` points to the **PEB** (Process Environment Block). In addition, in the **32-bit**  **PEB** structure, the field `ImageBaseAddress` is at offset `0x08`. http://blog.rewolf.pl/blog/wp-content/uploads/2013/03/PEB_Evolution.pdf
+`ReadProcessMemory` is a Windows API used to read data from a process to a buffer :`lpBuffer`. The data in a question is a value pointed by `Ebx + 8` in the suspended thread (see the snippet below). 
 
 ```c
 if ( !API_GetThreadContext)(lpProcessInformation.hThread, handle_alloc) ) {
   return 1;
 }
 / * ... */
-((void (__stdcall *))API_ReadProcessMemory)(lpProcessInformation.hProcess, handle_alloc->Ebx + 8, v27, 4, 0);
+((void (__stdcall *))API_ReadProcessMemory)(lpProcessInformation.hProcess, handle_alloc->Ebx + 8, lpBuffer, 4, 0);
 ```
 
-A new region of memory is allocated inside the thread. The function uses different value stored inside the `FILE_HEADER - 0x100` like `Image Base` & `Size Of Image`. Keep in mind the offset stored inside `e_lfanew` and the `DWORD` view of the file (cf. comments below).
+The register `EBX` points to the **PEB** (Process Environment Block), in the **32-bit**  **PEB** structure, the field `ImageBaseAddress` is at offset `0x08` (cf. this [article](http://blog.rewolf.pl/blog/?p=573)). 
+
+A new region of memory is allocated inside the thread. The function uses different value stored inside the `FILE_HEADER - 0x100` like `Image Base` & `Size Of Image`. Keep in mind the offset stored inside `e_lfanew` and the `DWORD` view of the= file (cf. comments below).
 
 ```cpp
 allocated_memory = ((int (__stdcall *))VirtualAllocEx)(
@@ -300,6 +305,7 @@ Both values can be observed inside **PE-BEAR**.
 
 ![image.png](/assets/img/image.png)
 _PE-Bear - ImageBase / SizeOfImage_
+
 After creating the remote image, the injector first writes the PE **headers** and then iterates the section table to write each section into the allocated memory.
 
 In the snippet below it writes only the `SizeOfHeaders` bytes (the value read from the Optional Header):
@@ -323,7 +329,6 @@ For each iteration, `WriteProcessMemory` is called and 3 values are collected:
 - `base + *e_lfanew + (0x42 + i * 0xA) * 4`  = `Size of Raw Data`
 
 > Where `i` is the index of the current section
-> 
 
 ```cpp
 if ( *((_WORD *)cp_ptr_e_lfanew + 3) )
@@ -344,7 +349,7 @@ if ( *((_WORD *)cp_ptr_e_lfanew + 3) )
   }
 ```
 
-As discussed earlier, the image base of the suspended process is overwritten with the image base of the current process:
+As discussed earlier, the image base of the suspended process is overwritten with the image base of the current process, it's how the injection process works !
 
 ```cpp
 ((void (__stdcall *))API_WriteProcessMemory)(
